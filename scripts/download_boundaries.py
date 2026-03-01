@@ -153,7 +153,7 @@ def extract_narino_gadm() -> None:
         with open(l1_path) as fh:
             data = json.load(fh)
         narino_feat = [f for f in data["features"]
-                          if f["properties"].get("NAME_1") == "Narino"]
+                          if f["properties"].get("NAME_1") in ("Narino", "Nariño")]
         if narino_feat:
             with open(dept_out, "w") as fh:
                 json.dump({"type": "FeatureCollection", "features": narino_feat}, fh)
@@ -168,7 +168,7 @@ def extract_narino_gadm() -> None:
         with open(l2_path) as fh:
             data = json.load(fh)
         ant_muns = [f for f in data["features"]
-                    if f["properties"].get("NAME_1") == "Narino"]
+                    if f["properties"].get("NAME_1") in ("Narino", "Nariño")]
         print(f"  -> Found {len(ant_muns)} Narino municipalities in GADM L2")
         with open(muns_out, "w") as fh:
             json.dump({"type": "FeatureCollection", "features": ant_muns}, fh)
@@ -208,7 +208,7 @@ def download_geoboundaries() -> None:
         with open(adm1_path) as fh:
             data = json.load(fh)
         feat = [f for f in data["features"]
-                if f["properties"].get("shapeName") == "Narino"]
+                if f["properties"].get("shapeName") in ("Narino", "Nariño")]
         if feat:
             with open(adm1_dept_out, "w") as fh:
                 json.dump({"type": "FeatureCollection", "features": feat}, fh)
@@ -263,7 +263,7 @@ def download_natural_earth() -> None:
         colombia = ne[ne["admin"] == "Colombia"]
         if not col_out.exists():
             save_geojson(colombia, col_out, "Colombia departments (Natural Earth)")
-        narino = colombia[colombia["name"] == "Narino"]
+        narino = colombia[colombia["name"].isin(["Narino", "Nariño"])]
         if not dept_out.exists():
             save_geojson(narino, dept_out, "Narino boundary (Natural Earth)")
 
@@ -342,15 +342,42 @@ def create_narino_subregions() -> None:
     }
 
     muns = gpd.read_file(muns_path)
-    mun_index = {row["NAME_2"]: idx for idx, row in muns.iterrows()}
+
+    # GADM 4.1 uses accented characters and joined compound names
+    # (e.g. "ElCharco", "SanJuandePasto", "Túquerres", "Córdoba").
+    # Our subregion list uses ASCII names with spaces.
+    # Build a normalized lookup to match regardless of accents/spaces.
+    import unicodedata
+
+    def _normalize(name: str) -> str:
+        """Strip accents, remove spaces, and lowercase for fuzzy matching."""
+        nfkd = unicodedata.normalize("NFKD", name)
+        ascii_only = "".join(c for c in nfkd if not unicodedata.combining(c))
+        return ascii_only.replace(" ", "").replace("-", "").lower()
+
+    # Map normalized GADM names to their original index
+    mun_norm_index = {}
+    for idx, row in muns.iterrows():
+        mun_norm_index[_normalize(row["NAME_2"])] = idx
+
+    # Special cases: GADM compound names differ from our ASCII shorthand
+    _aliases = {
+        "Pasto": "SanJuandePasto",
+        "El Tablon": "ElTablondeGomez",
+    }
+    for short, gadm_name in _aliases.items():
+        gadm_key = _normalize(gadm_name)
+        if gadm_key in mun_norm_index:
+            mun_norm_index[_normalize(short)] = mun_norm_index[gadm_key]
 
     features = []
     for subregion_name, mun_list in SUBREGIONS.items():
         geoms = []
         matched, missing = [], []
         for mun in mun_list:
-            if mun in mun_index:
-                geoms.append(muns.loc[mun_index[mun], "geometry"])
+            norm_key = _normalize(mun)
+            if norm_key in mun_norm_index:
+                geoms.append(muns.loc[mun_norm_index[norm_key], "geometry"])
                 matched.append(mun)
             else:
                 missing.append(mun)
