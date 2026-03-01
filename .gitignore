@@ -1,0 +1,27 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+data/
+logs/
+outputs/
+*.tif
+*.tiff
+.DS_Store
+
+# LaTeX build artifacts
+overleaf/*.aux
+overleaf/*.bbl
+overleaf/*.blg
+overleaf/*.log
+overleaf/*.out
+overleaf/*.pdf
+overleaf/*.synctex.gz
+overleaf/*.fls
+overleaf/*.fdb_latexmk
+
+# Keep figure PDFs (tracked in overleaf/figures/)
+!overleaf/figures/*.pdf
+
+# Large PNGs (use PDFs for version control)
+overleaf/figures/*.png
