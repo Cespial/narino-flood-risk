@@ -100,7 +100,7 @@ def _load_susceptibility_map(region: ee.Geometry) -> ee.Image:
 
     # Try asset-based approach first (post-export)
     try:
-        asset_id = "projects/ee-maestria-tesis/assets/narino_flood_susceptibility_ensemble"
+        asset_id = cfg.GEE_SUSCEPTIBILITY_ASSET
         susceptibility = ee.Image(asset_id).rename("susceptibility").clip(region)
         # Force server-side evaluation to verify asset exists.
         # ee.Image() is lazy: it never raises at construction time even

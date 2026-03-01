@@ -121,7 +121,7 @@ def add_north_arrow(ax, x=0.95, y=0.95, size=15):
     )
 
 
-def add_scalebar_wgs84(ax, lat_center=7.0, length_km=50):
+def add_scalebar_wgs84(ax, lat_center=1.29, length_km=50):
     """
     Add a manual scale bar on a WGS84 map.
     At this latitude, 1 degree longitude ~ 111 * cos(lat) km.
@@ -153,16 +153,16 @@ def add_scalebar_wgs84(ax, lat_center=7.0, length_km=50):
 def fig02_sar_water_detection():
     """
     Download real Sentinel-1 SAR data for a known flood event.
-    Bajo Cauca region (Caucasia-Nechí-El Bagre) — most flood-prone area.
-    Pre-flood: Jul-Aug 2024 (dry), During-flood: Oct-Nov 2024 (wet).
+    Pacific lowlands (Tumaco-Barbacoas) — most flood-prone area in Narino.
+    Pre-flood: Jul-Aug 2024 (relative dry), During-flood: Oct-Nov 2024 (wet).
     """
     print("Generating Figure 2: SAR water detection (REAL DATA)...")
     set_publication_style()
 
-    # Focus on Bajo Cauca / Nechí / lower Cauca River — most flood-prone
+    # Focus on Pacific lowlands / Telembi-Patia — most flood-prone
     # Tighter region for more detail
-    flood_region = ee.Geometry.Rectangle([-75.35, 7.55, -74.65, 8.35])
-    flood_bbox = [-75.35, 7.55, -74.65, 8.35]
+    flood_region = ee.Geometry.Rectangle([-79.0, 1.3, -78.2, 2.1])
+    flood_bbox = [-79.0, 1.3, -78.2, 2.1]
 
     s1 = (
         ee.ImageCollection('COPERNICUS/S1_GRD')
@@ -219,7 +219,7 @@ def fig02_sar_water_detection():
                    frameon=True, framealpha=0.9)
 
     fig.suptitle(
-        "Sentinel-1 SAR Flood Detection — Bajo Cauca, Narino",
+        "Sentinel-1 SAR Flood Detection — Pacific Lowlands, Narino",
         fontsize=10, fontweight="bold", y=1.02,
     )
     fig.tight_layout()
@@ -286,7 +286,7 @@ def fig03_jrc_water_occurrence():
 
     ax.set_title("JRC Global Surface Water Occurrence, Narino", fontsize=10)
     add_north_arrow(ax)
-    add_scalebar_wgs84(ax, lat_center=7.0, length_km=50)
+    add_scalebar_wgs84(ax, lat_center=1.29, length_km=50)
     ax.set_axis_off()
 
     fig.tight_layout()
@@ -351,7 +351,7 @@ def fig05_hand_map():
 
     ax.set_title("HAND Flood Susceptibility, Narino", fontsize=10)
     add_north_arrow(ax)
-    add_scalebar_wgs84(ax, lat_center=7.0, length_km=50)
+    add_scalebar_wgs84(ax, lat_center=1.29, length_km=50)
     ax.set_axis_off()
 
     fig.tight_layout()
@@ -420,7 +420,7 @@ def fig08_susceptibility_map():
 
     ax.set_title("Flood Susceptibility (Ensemble Model)", fontsize=10)
     add_north_arrow(ax)
-    add_scalebar_wgs84(ax, lat_center=7.0, length_km=50)
+    add_scalebar_wgs84(ax, lat_center=1.29, length_km=50)
     ax.set_axis_off()
 
     fig.tight_layout()

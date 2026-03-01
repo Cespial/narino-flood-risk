@@ -2,11 +2,11 @@
 """
 09_quality_control.py
 =====================
-Quality control and validation for the Antioquia Flood Risk Assessment.
+Quality control and validation for the Narino Flood Risk Assessment.
 
 Checks:
   1. All expected outputs exist and are non-empty
-  2. Area calculations (Antioquia total ~ 63,612 km2)
+  2. Area calculations (Narino total ~ 33,268 km2)
   3. Cross-validation of SAR water detection against JRC GSW
   4. ML model metrics are within reasonable ranges
   5. Municipal statistics sum to department totals
@@ -51,7 +51,7 @@ from utils import (
     load_narino_boundary, load_municipalities, load_subregions,
     compute_area_km2, validate_narino_area,
     OUTPUTS_DIR, TABLES_DIR, FIGURES_DIR, OVERLEAF_FIGURES, OVERLEAF_TABLES,
-    ANTIOQUIA_AREA_KM2, ANTIOQUIA_AREA_TOLERANCE,
+    NARINO_AREA_KM2, NARINO_AREA_TOLERANCE,
     CRS_WGS84, CRS_COLOMBIA,
 )
 
@@ -236,12 +236,12 @@ def check_outputs() -> List[QCResult]:
 def validate_areas() -> List[QCResult]:
     """
     Validate that area calculations for Narino boundaries are
-    consistent with the expected 63,612 km2 (DANE official area).
+    consistent with the expected 33,268 km2 (DANE official area).
 
     Tests:
     - GADM department boundary area
-    - Sum of 125 municipality areas
-    - Sum of 9 subregion areas
+    - Sum of 64 municipality areas
+    - Sum of 13 subregion areas
     - Individual municipality areas are positive and reasonable
 
     Returns
@@ -256,19 +256,19 @@ def validate_areas() -> List[QCResult]:
         try:
             boundary = load_narino_boundary(source)
             area_km2 = compute_area_km2(boundary)
-            within_tol = abs(area_km2 - ANTIOQUIA_AREA_KM2) / ANTIOQUIA_AREA_KM2 <= ANTIOQUIA_AREA_TOLERANCE
-            diff_pct = (area_km2 - ANTIOQUIA_AREA_KM2) / ANTIOQUIA_AREA_KM2 * 100
+            within_tol = abs(area_km2 - NARINO_AREA_KM2) / NARINO_AREA_KM2 <= NARINO_AREA_TOLERANCE
+            diff_pct = (area_km2 - NARINO_AREA_KM2) / NARINO_AREA_KM2 * 100
 
             r = QCResult(
                 check_name=f"area_department_{source}",
                 category="area_validation",
                 passed=within_tol,
                 message=(
-                    f"Antioquia area ({source}): {area_km2:,.1f} km2 "
-                    f"(expected ~{ANTIOQUIA_AREA_KM2:,.0f} km2, "
+                    f"Narino area ({source}): {area_km2:,.1f} km2 "
+                    f"(expected ~{NARINO_AREA_KM2:,.0f} km2, "
                     f"diff = {diff_pct:+.2f}%)"
                 ),
-                details=f"Tolerance: {ANTIOQUIA_AREA_TOLERANCE*100:.0f}%",
+                details=f"Tolerance: {NARINO_AREA_TOLERANCE*100:.0f}%",
                 severity="ERROR" if not within_tol else "INFO",
             )
             results.append(r)
@@ -288,15 +288,15 @@ def validate_areas() -> List[QCResult]:
     try:
         municipalities = load_municipalities("gadm")
         mun_total = compute_area_km2(municipalities)
-        within_tol = abs(mun_total - ANTIOQUIA_AREA_KM2) / ANTIOQUIA_AREA_KM2 <= ANTIOQUIA_AREA_TOLERANCE
-        diff_pct = (mun_total - ANTIOQUIA_AREA_KM2) / ANTIOQUIA_AREA_KM2 * 100
+        within_tol = abs(mun_total - NARINO_AREA_KM2) / NARINO_AREA_KM2 <= NARINO_AREA_TOLERANCE
+        diff_pct = (mun_total - NARINO_AREA_KM2) / NARINO_AREA_KM2 * 100
 
         r = QCResult(
             check_name="area_municipalities_sum",
             category="area_validation",
             passed=within_tol,
             message=(
-                f"Sum of 125 municipalities: {mun_total:,.1f} km2 "
+                f"Sum of 64 municipalities: {mun_total:,.1f} km2 "
                 f"(diff = {diff_pct:+.2f}%)"
             ),
             severity="ERROR" if not within_tol else "INFO",
@@ -344,15 +344,15 @@ def validate_areas() -> List[QCResult]:
     try:
         subregions = load_subregions()
         sub_total = compute_area_km2(subregions)
-        within_tol = abs(sub_total - ANTIOQUIA_AREA_KM2) / ANTIOQUIA_AREA_KM2 <= ANTIOQUIA_AREA_TOLERANCE
-        diff_pct = (sub_total - ANTIOQUIA_AREA_KM2) / ANTIOQUIA_AREA_KM2 * 100
+        within_tol = abs(sub_total - NARINO_AREA_KM2) / NARINO_AREA_KM2 <= NARINO_AREA_TOLERANCE
+        diff_pct = (sub_total - NARINO_AREA_KM2) / NARINO_AREA_KM2 * 100
 
         r = QCResult(
             check_name="area_subregions_sum",
             category="area_validation",
             passed=within_tol,
             message=(
-                f"Sum of 9 subregions: {sub_total:,.1f} km2 "
+                f"Sum of 13 subregions: {sub_total:,.1f} km2 "
                 f"(diff = {diff_pct:+.2f}%)"
             ),
             severity="WARNING" if not within_tol else "INFO",
@@ -618,7 +618,7 @@ def verify_municipal_stats() -> List[QCResult]:
     Verify that municipal-level statistics are internally consistent:
     - Sum of municipal populations equals department total (approximately)
     - Sum of municipal areas equals department area
-    - All 125 municipalities are accounted for
+    - All 64 municipalities are accounted for
     - Risk scores are within [0, 1]
     - No duplicated municipalities
 
@@ -633,7 +633,7 @@ def verify_municipal_stats() -> List[QCResult]:
     try:
         municipalities = load_municipalities("gadm")
         n_mun = len(municipalities)
-        expected = 125
+        expected = 64
         within_range = abs(n_mun - expected) <= 5  # Allow small tolerance
         r = QCResult(
             check_name="municipal_count",
@@ -679,9 +679,9 @@ def verify_municipal_stats() -> List[QCResult]:
         r = QCResult(
             check_name="subregion_count",
             category="municipal_stats",
-            passed=(n_sub == 9),
-            message=f"Subregion count: {n_sub} (expected 9)",
-            severity="ERROR" if n_sub != 9 else "INFO",
+            passed=(n_sub == 13),
+            message=f"Subregion count: {n_sub} (expected 13)",
+            severity="ERROR" if n_sub != 13 else "INFO",
         )
         results.append(r)
         _add_result(r)
@@ -720,7 +720,7 @@ def verify_municipal_stats() -> List[QCResult]:
         exp_df = pd.read_csv(exposure_path)
         # Check exposed <= total population for each row
         if "Total Population" in exp_df.columns and "Exposed Population" in exp_df.columns:
-            data_rows = exp_df[exp_df["Subregion"] != "TOTAL (Antioquia)"]
+            data_rows = exp_df[exp_df["Subregion"] != "TOTAL (Narino)"]
             pop_total = pd.to_numeric(data_rows["Total Population"], errors="coerce")
             pop_exposed = pd.to_numeric(data_rows["Exposed Population"], errors="coerce")
             valid_mask = pop_total.notna() & pop_exposed.notna()
@@ -769,7 +769,7 @@ def generate_qc_report() -> pathlib.Path:
     # Build report
     lines = []
     lines.append("# Quality Control Report")
-    lines.append(f"## Antioquia Flood Risk Assessment")
+    lines.append(f"## Narino Flood Risk Assessment")
     lines.append("")
     lines.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     lines.append(f"**Project Root:** `{PROJECT_ROOT}`")
@@ -866,7 +866,7 @@ def generate_qc_report() -> pathlib.Path:
 def main() -> None:
     """Run all quality control checks and generate the report."""
     logger.info("=" * 70)
-    logger.info("QUALITY CONTROL - ANTIOQUIA FLOOD RISK ASSESSMENT")
+    logger.info("QUALITY CONTROL - NARINO FLOOD RISK ASSESSMENT")
     logger.info("=" * 70)
 
     ensure_dirs()

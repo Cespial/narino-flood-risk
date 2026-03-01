@@ -2,7 +2,7 @@
 """
 08_generate_tables.py
 =====================
-Generate publication-quality tables as CSV and LaTeX for the Antioquia
+Generate publication-quality tables as CSV and LaTeX for the Narino
 Flood Risk Assessment manuscript.
 
 Tables:
@@ -461,7 +461,7 @@ def generate_table5_municipal_risk() -> pd.DataFrame:
 def generate_table6_population_exposure() -> pd.DataFrame:
     """
     Table 6: Population exposure to flood risk aggregated by the
-    9 official subregions of Antioquia.
+    13 official subregions of Narino.
     """
     logger.info("Generating Table 6: Population exposure by subregion...")
 
@@ -494,7 +494,7 @@ def generate_table6_population_exposure() -> pd.DataFrame:
     # Add department total row
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     total = df[numeric_cols].sum()
-    total_row = {"Subregion": "TOTAL (Antioquia)"}
+    total_row = {"Subregion": "TOTAL (Narino)"}
     for col in df.columns:
         if col == "Subregion":
             continue
@@ -628,7 +628,7 @@ def generate_table7_seasonal_dynamics() -> pd.DataFrame:
 def main() -> None:
     """Generate all 7 publication tables."""
     logger.info("=" * 70)
-    logger.info("TABLE GENERATION - ANTIOQUIA FLOOD RISK ASSESSMENT")
+    logger.info("TABLE GENERATION - NARINO FLOOD RISK ASSESSMENT")
     logger.info("=" * 70)
 
     ensure_dirs()

@@ -188,18 +188,18 @@ def load_boundary():
 
 
 def load_municipalities():
-    return gpd.read_file(BOUNDARIES_DIR / "narino_municipalities_125_GADM41.geojson")
+    return gpd.read_file(BOUNDARIES_DIR / "narino_municipalities_64_GADM41.geojson")
 
 
 def load_subregions():
-    return gpd.read_file(BOUNDARIES_DIR / "narino_9_subregions.geojson")
+    return gpd.read_file(BOUNDARIES_DIR / "narino_13_subregions.geojson")
 
 
 # ============================================================================
 # Map helpers — professional cartographic elements
 # ============================================================================
 
-def add_scalebar(ax, lat=7.0, length_km=50, y_frac=0.04, x_frac=0.05):
+def add_scalebar(ax, lat=1.29, length_km=50, y_frac=0.04, x_frac=0.05):
     km_per_deg = 111.32 * math.cos(math.radians(lat))
     deg_len = length_km / km_per_deg
     xl, xr = ax.get_xlim()
@@ -342,8 +342,8 @@ def fig02_sar_water_detection():
     print("Figure 2: SAR water detection...")
     set_nature_style()
 
-    flood_region = ee.Geometry.Rectangle([-75.35, 7.55, -74.65, 8.35])
-    bbox = [-75.35, 7.55, -74.65, 8.35]
+    flood_region = ee.Geometry.Rectangle([-79.0, 1.3, -78.2, 2.1])
+    bbox = [-79.0, 1.3, -78.2, 2.1]
     narino = load_boundary()
 
     s1 = (ee.ImageCollection('COPERNICUS/S1_GRD')

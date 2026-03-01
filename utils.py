@@ -139,7 +139,7 @@ def load_municipalities(source: str = "gadm") -> gpd.GeoDataFrame:
     gpd.GeoDataFrame
     """
     paths = {
-        "gadm": BOUNDARIES_DIR / "narino_municipalities_125_GADM41.geojson",
+        "gadm": BOUNDARIES_DIR / "narino_municipalities_64_GADM41.geojson",
         "geoboundaries": BOUNDARIES_DIR / "narino_municipalities_geoBoundaries_simplified.geojson",
     }
     path = paths.get(source)
@@ -161,7 +161,7 @@ def load_subregions() -> gpd.GeoDataFrame:
 
 def load_river_basins(level: int = 5) -> gpd.GeoDataFrame:
     """
-    Load HydroSHEDS river basins clipped to Antioquia.
+    Load HydroSHEDS river basins clipped to Narino.
 
     Parameters
     ----------

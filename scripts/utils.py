@@ -14,7 +14,7 @@ Provides reusable helpers for:
 Usage:
     from utils import get_study_area, get_municipalities, setup_logging
 
-Author : Antioquia Flood Risk Research Project
+Author : Narino Flood Risk Research Project
 Date   : 2026-02-26
 """
 
@@ -125,7 +125,7 @@ def get_study_area() -> ee.FeatureCollection:
 
 def get_study_area_geometry() -> ee.Geometry:
     """
-    Return the dissolved geometry of Antioquia as a single ``ee.Geometry``.
+    Return the dissolved geometry of Narino as a single ``ee.Geometry``.
 
     Useful for spatial filters and region parameters where a geometry
     (not a FeatureCollection) is required.
@@ -133,7 +133,7 @@ def get_study_area_geometry() -> ee.Geometry:
     Returns
     -------
     ee.Geometry
-        Dissolved Antioquia boundary.
+        Dissolved Narino boundary.
     """
     return get_study_area().geometry().dissolve()
 
@@ -145,7 +145,7 @@ def get_municipalities() -> ee.FeatureCollection:
     Returns
     -------
     ee.FeatureCollection
-        ~125 municipality polygons with properties including ``ADM2_NAME``.
+        ~64 municipality polygons with properties including ``ADM2_NAME``.
     """
     municipalities = (
         ee.FeatureCollection(cfg.MUNICIPAL_DATASET)
@@ -158,7 +158,7 @@ def get_municipalities() -> ee.FeatureCollection:
 
 def get_subregion_municipalities(subregion_name: str) -> ee.FeatureCollection:
     """
-    Filter municipalities belonging to a specific Antioquia subregion.
+    Filter municipalities belonging to a specific Narino subregion.
 
     Parameters
     ----------

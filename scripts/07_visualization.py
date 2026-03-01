@@ -1103,7 +1103,7 @@ def fig12_climate_flood_correlation() -> None:
 def main() -> None:
     """Generate all 12 publication-quality figures."""
     logger.info("=" * 70)
-    logger.info("PUBLICATION FIGURE GENERATION - ANTIOQUIA FLOOD RISK ASSESSMENT")
+    logger.info("PUBLICATION FIGURE GENERATION - NARINO FLOOD RISK ASSESSMENT")
     logger.info("=" * 70)
 
     ensure_dirs()

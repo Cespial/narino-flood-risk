@@ -2,12 +2,12 @@
 """
 download_boundaries.py
 ======================
-Downloads and processes geographic boundary data for the Antioquia Flood Risk
+Downloads and processes geographic boundary data for the Narino Flood Risk
 Research Project.
 
 This script downloads from authoritative public sources:
-  - Administrative boundaries (department + 125 municipalities)
-  - 9 official subregions of Antioquia
+  - Administrative boundaries (department + 64 municipalities)
+  - 13 official subregions of Narino
   - River basins / cuencas (HydroBASINS levels 5 and 7)
   - Natural Earth department-level context
   - Notes on additional data sources requiring manual access
@@ -139,14 +139,14 @@ def download_gadm_boundaries() -> dict:
 
 def extract_narino_gadm() -> None:
     """
-    Extract Antioquia-specific GeoJSON files from GADM Colombia data:
+    Extract Narino-specific GeoJSON files from GADM Colombia data:
       - Department boundary (level 1)
-      - All 125 municipalities (level 2)
+      - All 64 municipalities (level 2)
     """
     gpd = import_geopandas()
-    print("\n[2] Extracting Antioquia boundaries from GADM data")
+    print("\n[2] Extracting Narino boundaries from GADM data")
 
-    # -- Antioquia department boundary --
+    # -- Narino department boundary --
     l1_path = BOUNDARIES_DIR / "gadm41_COL_1.json"
     dept_out = BOUNDARIES_DIR / "narino_department_boundary_GADM41.geojson"
     if not dept_out.exists() and l1_path.exists():
@@ -159,17 +159,17 @@ def extract_narino_gadm() -> None:
                 json.dump({"type": "FeatureCollection", "features": narino_feat}, fh)
             print(f"  -> Saved {dept_out.name} (1 feature)")
         else:
-            print("  WARNING: Antioquia not found in GADM L1 data")
+            print("  WARNING: Narino not found in GADM L1 data")
 
-    # -- Antioquia 125 municipalities --
+    # -- Narino 64 municipalities --
     l2_path = BOUNDARIES_DIR / "gadm41_COL_2.json"
-    muns_out = BOUNDARIES_DIR / "narino_municipalities_125_GADM41.geojson"
+    muns_out = BOUNDARIES_DIR / "narino_municipalities_64_GADM41.geojson"
     if not muns_out.exists() and l2_path.exists():
         with open(l2_path) as fh:
             data = json.load(fh)
         ant_muns = [f for f in data["features"]
                     if f["properties"].get("NAME_1") == "Narino"]
-        print(f"  -> Found {len(ant_muns)} Antioquia municipalities in GADM L2")
+        print(f"  -> Found {len(ant_muns)} Narino municipalities in GADM L2")
         with open(muns_out, "w") as fh:
             json.dump({"type": "FeatureCollection", "features": ant_muns}, fh)
         print(f"  -> Saved {muns_out.name}")
@@ -201,7 +201,7 @@ def download_geoboundaries() -> None:
         if not dest.exists():
             download_file(url, dest, desc)
 
-    # Extract Antioquia from geoBoundaries ADM1
+    # Extract Narino from geoBoundaries ADM1
     adm1_path = BOUNDARIES_DIR / "geoBoundaries_COL_ADM1_departments.geojson"
     adm1_dept_out = BOUNDARIES_DIR / "narino_department_boundary_geoBoundaries.geojson"
     if adm1_path.exists() and not adm1_dept_out.exists():
@@ -212,16 +212,16 @@ def download_geoboundaries() -> None:
         if feat:
             with open(adm1_dept_out, "w") as fh:
                 json.dump({"type": "FeatureCollection", "features": feat}, fh)
-            print(f"  -> Extracted Antioquia from geoBoundaries ADM1")
+            print(f"  -> Extracted Narino from geoBoundaries ADM1")
 
-    # Spatially extract Antioquia municipalities from ADM2
+    # Spatially extract Narino municipalities from ADM2
     adm2_path = BOUNDARIES_DIR / "geoBoundaries_COL_ADM2_simplified.geojson"
     adm2_dept_out = BOUNDARIES_DIR / "narino_municipalities_geoBoundaries_simplified.geojson"
     dept_boundary_path = BOUNDARIES_DIR / "narino_department_boundary_GADM41.geojson"
 
     if (adm2_path.exists() and dept_boundary_path.exists()
             and not adm2_dept_out.exists()):
-        print("  -> Spatially extracting Antioquia municipalities from geoBoundaries ADM2...")
+        print("  -> Spatially extracting Narino municipalities from geoBoundaries ADM2...")
         gdf = gpd.read_file(adm2_path)
         narino_gdf = gpd.read_file(dept_boundary_path)
         gdf_centroids = gdf.copy()
@@ -232,13 +232,13 @@ def download_geoboundaries() -> None:
         joined = gpd.sjoin(gdf_centroids, narino_gdf[["geometry"]],
                            how="inner", predicate="within")
         result = gdf[gdf.index.isin(joined.index)]
-        save_geojson(result, adm2_dept_out, "Antioquia municipalities (geoBoundaries simplified)")
+        save_geojson(result, adm2_dept_out, "Narino municipalities (geoBoundaries simplified)")
 
 
 def download_natural_earth() -> None:
     """
     Download Natural Earth 1:10m admin-1 shapefile and extract
-    Antioquia + all Colombia departments.
+    Narino + all Colombia departments.
     """
     print("\n[4] Natural Earth – Colombia Admin-1 Boundaries (1:10m)")
     print("    Source: https://www.naturalearthdata.com")
@@ -263,82 +263,81 @@ def download_natural_earth() -> None:
         colombia = ne[ne["admin"] == "Colombia"]
         if not col_out.exists():
             save_geojson(colombia, col_out, "Colombia departments (Natural Earth)")
-        antioquia = colombia[colombia["name"] == "Narino"]
+        narino = colombia[colombia["name"] == "Narino"]
         if not dept_out.exists():
-            save_geojson(antioquia, dept_out, "Antioquia boundary (Natural Earth)")
+            save_geojson(narino, dept_out, "Narino boundary (Natural Earth)")
 
 
 # ---------------------------------------------------------------------------
-# Section 2 – Antioquia Subregions
+# Section 2 – Narino Subregions
 # ---------------------------------------------------------------------------
 
 def create_narino_subregions() -> None:
     """
-    Build the 9 official subregions of Antioquia by dissolving GADM
+    Build the 13 official subregions of Narino by dissolving GADM
     municipality polygons. Subregion classification follows Gobernacion
-    de Antioquia / DANE official groupings.
+    de Narino / DANE official groupings.
     """
-    print("\n[5] Creating Antioquia 9 Subregion Boundaries")
+    print("\n[5] Creating Narino 13 Subregion Boundaries")
 
     out_path = BOUNDARIES_DIR / "narino_13_subregions.geojson"
     if out_path.exists():
         print(f"  -> Already exists: {out_path.name}")
         return
 
-    muns_path = BOUNDARIES_DIR / "narino_municipalities_125_GADM41.geojson"
+    muns_path = BOUNDARIES_DIR / "narino_municipalities_64_GADM41.geojson"
     if not muns_path.exists():
         print("  WARNING: GADM municipalities file not found. Run extract_narino_gadm() first.")
         return
 
     gpd = import_geopandas()
 
-    # GADM uses concatenated names without spaces (e.g., "LaEstrella")
+    # Municipality names use GADM NAME_2 values
     # Mapping: subregion name -> list of GADM NAME_2 values
     SUBREGIONS = {
-        "Valle de Aburrá": [
-            "Barbosa", "Girardota", "Copacabana", "Bello", "Medellín",
-            "Itagüí", "Envigado", "Sabaneta", "LaEstrella", "Caldas",
+        "Centro": [
+            "Pasto", "Chachagui", "La Florida", "Narino", "Tangua", "Yacuanquer",
         ],
-        "Oriente": [
-            "Abejorral", "Alejandría", "Argelia", "ElCarmendeViboral", "Cocorná",
-            "Concepción", "Peñol", "Retiro", "Santuario", "Granada",
-            "Guarné", "Guatapé", "LaCeja", "LaUnión", "Marinilla",
-            "Nariño", "Rionegro", "SanCarlos", "SanFrancisco",
-            "SanLuís", "SanRafael", "SanVicente", "Sonsón",
+        "Guambuyaco": [
+            "El Penol", "El Tambo", "La Llanada", "Los Andes",
         ],
-        "Suroeste": [
-            "Amagá", "Andes", "Angelópolis", "Betania", "Betulia",
-            "Caicedo", "Caramanta", "CiudadBolívar", "Concordia", "Fredonia",
-            "Hispania", "Jardín", "Jericó", "LaPintada", "Montebello",
-            "Pueblorrico", "Salgar", "SantaBárbara", "Támesis", "Tarso",
-            "Titiribí", "Urrao", "Valparaíso", "Venecia",
+        "Juanambu": [
+            "Arboleda", "Buesaco", "La Union", "San Lorenzo",
+            "San Pedro De Cartago",
         ],
-        "Norte": [
-            "Angostura", "Belmira", "Briceño", "Campamento", "CarolinadelPrincipe",
-            "DonMatías", "Entrerríos", "GómezPlata", "Guadalupe", "Ituango",
-            "SanAndrésdeCuerquia", "SanJosédelaMontaña", "SanPedrodelosMilagros",
-            "SantaRosadeOsos", "Toledo", "Valdivia", "Yarumal",
+        "La Cordillera": [
+            "Cumbitara", "El Rosario", "Leiva", "Policarpa", "Taminango",
         ],
-        "Nordeste": [
-            "Amalfi", "Anorí", "Cisneros", "Remedios", "SanRoque",
-            "SantoDomingo", "Segovia", "Vegachí", "Yalí", "Yolombó",
+        "La Sabana": [
+            "Guaitarilla", "Imues", "Ospina", "Sapuyes", "Tuquerres",
+        ],
+        "Los Abades": [
+            "Providencia", "Samaniego", "Santa Cruz",
+        ],
+        "Obando": [
+            "Aldana", "Contadero", "Cordoba", "Cuaspud", "Cumbal",
+            "Funes", "Guachucal", "Gualmatan", "Iles", "Ipiales",
+            "Potosi", "Puerres", "Pupiales",
         ],
         "Occidente": [
-            "Abriaquí", "Anzá", "Armenia", "Buriticá", "Cañasgordas",
-            "Dabeiba", "Ebéjico", "Frontino", "Giraldo", "Heliconia",
-            "Liborina", "Olaya", "Pequé", "Sabanalarga", "SanJerónimo",
-            "SantafédeAntioquia", "ElSopetrán", "Uramita",
+            "Ancuya", "Consaca", "Linares", "Sandona",
         ],
-        "Magdalena Medio": [
-            "Caracolí", "Maceo", "PuertoBerrío", "PuertoNare", "PuertoTriunfo", "Yondó",
+        "Pacifico Sur": [
+            "Francisco Pizarro", "Tumaco",
         ],
-        "Bajo Cauca": [
-            "Cáceres", "Caucasia", "ElBagre", "Nechí", "Tarazá", "Zaragoza",
+        "Piedemonte Costero": [
+            "Mallama", "Ricaurte",
         ],
-        "Urabá": [
-            "Apartadó", "Arboletes", "Carepa", "Chigorodó", "Murindó",
-            "Mutatá", "Necoclí", "SanJuandeUrabá", "SanPedrodeUrabá",
-            "Turbo", "VigíadelFuerte",
+        "Rio Mayo": [
+            "Alban", "Belen", "Colon", "El Tablon", "La Cruz",
+            "San Bernardo", "San Pablo",
+        ],
+        "Sanquianga": [
+            "El Charco", "La Tola", "Mosquera", "Olaya Herrera",
+            "Santa Barbara",
+        ],
+        "Telembi": [
+            "Barbacoas", "Magui", "Roberto Payan",
         ],
     }
 
@@ -377,7 +376,7 @@ def create_narino_subregions() -> None:
         json.dump(fc, fh, ensure_ascii=False)
 
     total = sum(f["properties"]["n_municipalities_matched"] for f in features)
-    print(f"  -> Saved {out_path.name} (9 subregions, {total} municipalities matched)")
+    print(f"  -> Saved {out_path.name} (13 subregions, {total} municipalities matched)")
 
 
 # ---------------------------------------------------------------------------
@@ -387,7 +386,7 @@ def create_narino_subregions() -> None:
 def download_hydrobasins() -> None:
     """
     Download HydroBASINS South America at levels 5 and 7, then clip to
-    Antioquia department boundary.
+    Narino department boundary.
 
     HydroBASINS is published by WWF / HydroSHEDS project.
     License: free for academic and non-commercial use.
@@ -398,7 +397,7 @@ def download_hydrobasins() -> None:
 
     dept_path = BOUNDARIES_DIR / "narino_department_boundary_GADM41.geojson"
     if not dept_path.exists():
-        print("  WARNING: Antioquia boundary not found. Run earlier steps first.")
+        print("  WARNING: Narino boundary not found. Run earlier steps first.")
         return
 
     gpd = import_geopandas()
@@ -432,7 +431,7 @@ def download_hydrobasins() -> None:
                                 predicate="intersects")
             clipped = clipped.drop(columns=["index_right"], errors="ignore")
             save_geojson(clipped, out_path,
-                         f"Antioquia river basins HydroSHEDS L{level}")
+                         f"Narino river basins HydroSHEDS L{level}")
 
 
 # ---------------------------------------------------------------------------
@@ -462,9 +461,9 @@ def download_osm_data() -> None:
     print("      curl -L -o colombia-latest-free.shp.zip \\")
     print("        https://download.geofabrik.de/south-america/colombia-latest-free.shp.zip")
     print("")
-    print("    For Antioquia-only OSM extract (recommended):")
+    print("    For Narino-only OSM extract (recommended):")
     print("      Use BBBike custom extract: https://extract.bbbike.org/")
-    print("      Bounding box: W=-77.15, S=5.41, E=-73.87, N=8.89")
+    print("      Bounding box: W=-79.10, S=0.40, E=-76.80, N=2.35")
     print("      Or use Overpass API to query by boundary:")
     print("      https://overpass-turbo.eu/")
 
@@ -519,7 +518,7 @@ def download_flood_hazard_info() -> None:
         },
         {
             "name": "Corponarino – Cuencas (ArcGIS REST)",
-            "url": "https://geografico.corantioquia.gov.co/arcgis/rest/services/Corponarino_Geoconsulta/MapServer/6",
+            "url": "https://corponarino.gov.co/geovisor/",
             "format": "ArcGIS REST / GeoJSON",
             "access": "REST API (connection issues observed)",
             "notes": "Watershed delineation (Otto Pfafstetter NSS3 level) for Corponarino jurisdiction",
@@ -536,7 +535,7 @@ def download_flood_hazard_info() -> None:
             "url": "https://www.datos.gov.co",
             "format": "CSV, JSON, Shapefile",
             "access": "Free API at datos.gov.co/resource/<dataset_id>.json",
-            "notes": "Search for 'inundaciones', 'eventos', 'emergencias Antioquia'",
+            "notes": "Search for 'inundaciones', 'eventos', 'emergencias Narino'",
         },
         {
             "name": "HDX (ReliefWeb) – Colombia Flood Events",
@@ -593,14 +592,14 @@ def print_summary() -> None:
 
 def main() -> None:
     print("=" * 70)
-    print("Antioquia Flood Risk Research – Geographic Boundary Downloader")
+    print("Narino Flood Risk Research – Geographic Boundary Downloader")
     print("=" * 70)
     print(f"Output directory: {BOUNDARIES_DIR}")
 
     # 1. GADM administrative boundaries
     download_gadm_boundaries()
 
-    # 2. Extract Antioquia from GADM
+    # 2. Extract Narino from GADM
     extract_narino_gadm()
 
     # 3. geoBoundaries
