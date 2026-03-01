@@ -378,7 +378,7 @@ EXPORT_SCALE = 30
 DRIVE_EXPORT_FOLDER = 'narino_flood_risk'
 
 # GEE asset path for susceptibility map
-GEE_SUSCEPTIBILITY_ASSET = 'projects/ee-flood-risk-narino/assets/narino_flood_susceptibility_ensemble'
+GEE_SUSCEPTIBILITY_ASSET = 'projects/ee-maestria-tesis/assets/narino_flood_susceptibility_ensemble'
 
 # Project paths
 import pathlib
