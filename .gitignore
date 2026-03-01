@@ -2,12 +2,23 @@
 __pycache__/
 *.pyc
 *.pyo
-data/
 logs/
-outputs/
 *.tif
 *.tiff
 .DS_Store
+
+# Data: track boundaries, ignore large raw/downloaded files
+data/boundaries/*.zip
+data/boundaries/*_tmp/
+data/boundaries/gadm41_COL_*.json
+data/boundaries/GADM41_COL_*.json
+data/boundaries/geoBoundaries_COL_*.geojson
+data/boundaries/colombia_all_departments_naturalearth.geojson
+data/boundaries/natural_earth_admin1_10m.zip
+
+# Outputs: track tables (CSV), ignore large rasters
+outputs/*.tif
+outputs/**/*.tif
 
 # LaTeX build artifacts
 overleaf/*.aux
