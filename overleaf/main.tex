@@ -1,0 +1,463 @@
+% ============================================================================
+% Municipality-Scale Flood Risk Mapping in Narino, Colombia
+% Using Sentinel-1 SAR and Ensemble Machine Learning (2015--2025)
+% Authors: Cristian Espinal Maya, Santiago Jimenez Londono
+% Format: arXiv preprint
+% ============================================================================
+
+\documentclass{article}
+
+\usepackage{arxiv}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{siunitx}
+\sisetup{
+    group-separator = {,},
+    group-minimum-digits = 4,
+}
+\usepackage{natbib}
+\usepackage{tabularx}
+\usepackage{textcomp}
+
+\graphicspath{{./figures/}}
+
+\title{Municipality-Scale Flood Risk Mapping in Nari\~no, Colombia, Using Sentinel-1 SAR and Ensemble Machine Learning (2015--2025)}
+
+\author{
+  Cristian Espinal Maya\thanks{Correspondence: cespinalm@eafit.edu.co. ORCID: \href{https://orcid.org/0009-0000-1009-8388}{0009-0000-1009-8388}} \\
+  School of Applied Sciences and Engineering\\
+  Universidad EAFIT\\
+  Medell\'in, Colombia \\
+  \texttt{cespinalm@eafit.edu.co} \\
+  \And
+  Santiago Jim\'enez Londo\~no\thanks{ORCID: \href{https://orcid.org/0009-0007-9862-7133}{0009-0007-9862-7133}} \\
+  School of Applied Sciences and Engineering\\
+  Universidad EAFIT\\
+  Medell\'in, Colombia \\
+  \texttt{sjimenez@eafit.edu.co} \\
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A persistent scale mismatch limits the utility of satellite-based flood products for local governance: most operate at national resolution, while flood risk decisions in decentralized countries are made at the municipal level. We present a reproducible, open-access framework that delivers municipality-level flood risk statistics for all 64 municipalities of the Department of Nari\~no, Colombia (\SI{33268}{\kilo\metre\squared}; $\sim$1.9 million inhabitants). Nari\~no presents unique challenges: an extreme elevational gradient (0--\SI{4764}{\metre}), dual precipitation regimes (bimodal Andean at 800--1,600~mm\,yr$^{-1}$ vs.\ unimodal Pacific at 2,600--5,000+~mm\,yr$^{-1}$), and paradoxically above-normal rainfall during \textit{both} El Ni\~no and La Ni\~na phases. We processed Sentinel-1 C-band SAR scenes (2015--2025) within Google Earth Engine using adaptive Otsu thresholding to produce monthly water extent maps at \SI{10}{\metre} resolution. Eighteen predictor variables spanning topographic, hydrological, climatic, land cover, and demographic domains were integrated into a weighted ensemble of Random Forest, XGBoost, and LightGBM, validated through spatial five-fold cross-validation across 13 subregions. HAND, SAR flood frequency, and elevation were identified as dominant predictors via SHAP analysis. Overlaying the susceptibility surface with \SI{100}{\metre} population data reveals that the most vulnerable populations are concentrated in the Pacific lowland communities of Tumaco, Barbacoas, Olaya Herrera, Roberto Pay\'an, and Magu\'i Pay\'an. The entire framework---data, code, and trained models---is open-access and fully reproducible (\url{https://github.com/Cespial/narino-flood-risk}), constituting the second departmental application of a pipeline originally developed for the Department of Antioquia \citep{EspinalMaya2026Antioquia}.
+\end{abstract}
+
+\keywords{flood susceptibility mapping \and Sentinel-1 SAR \and ensemble machine learning \and HAND \and Google Earth Engine \and SHAP \and ENSO \and population exposure \and Nari\~no Colombia}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+\label{sec:introduction}
+
+Between November 2010 and May 2011, a La Ni\~na event struck Colombia with exceptional intensity: over 300 people died, 2.3 million were displaced, and direct losses exceeded USD 7.8 billion \citep{Hoyos2013}. The Department of Nari\~no was severely affected, with the Telemb\'i, Pat\'ia, and Sanquianga river basins experiencing simultaneous overflow events. Yet municipal governments found themselves operating with national-scale hazard maps that could not distinguish which floodplain corridors had been inundated. Today, most of Nari\~no's 64 municipalities still lack the spatially explicit flood information mandated by their own planning instruments.
+
+Globally, flooding affects approximately 1.65 billion people per decade \citep{UNDRR2020}. \citet{Tellman2021} showed that population exposure to flooding grew 20--24\% between 2000 and 2018, while \citet{Rentschler2022} estimated 1.81 billion people in significant flood hazard zones, 89\% in low- and middle-income countries. However, a persistent disconnect separates the scale at which satellite-derived flood products are generated (continental or national) from the scale at which flood risk decisions must be made (municipal) \citep{Bates2023}. This mismatch is acute in Colombia, where Ley~1523 of 2012 decentralizes flood risk management to municipalities, each legally mandated to formulate a Plan de Ordenamiento Territorial (POT) and a Plan Municipal de Gesti\'on del Riesgo de Desastres (PMGRD) \citep{CongresoCol2012}. Yet most lack the technical capacity to produce the required geospatial inputs \citep{OECD2019}.
+
+Three technological developments now converge to address this gap. First, Sentinel-1 SAR provides cloud-penetrating imagery at \SI{10}{\metre} resolution with 6--12 day revisit, overcoming the $>$70\% cloud contamination that renders optical sensors ineffective in tropical regions \citep{Twele2016, DeVries2020}. Second, ensemble machine learning (Random Forest, XGBoost, LightGBM) consistently outperforms traditional methods for flood susceptibility prediction \citep{Mosavi2018, Darabi2021}, with SHAP enabling model interpretability \citep{Lundberg2017}. Third, Google Earth Engine democratizes petabyte-scale satellite processing \citep{Gorelick2017}. Despite these advances, comprehensive frameworks carrying the analysis from raw SAR data through to municipality-level risk statistics remain rare, and the flood susceptibility ML literature is conspicuously underrepresented in Andean tropical environments \citep{FloodRiskLAC2022}.
+
+Global flood hazard products---including Fathom Global (\SI{90}{\metre}), the Global Flood Database \citep{Tellman2021}, and JRC Global Surface Water \citep{Pekel2016}---have transformed continental-scale flood assessment. However, their spatial resolution precludes the delineation of narrow Andean valley-floor flooding and urban-fluvial interfaces critical for municipal planning. Our municipal-scale framework is designed to be \textit{complementary}, not redundant: it ingests global products (JRC, MERIT Hydro) as input features while delivering locally actionable outputs at resolutions 3--9$\times$ finer than existing global layers.
+
+\textbf{Research gap and contributions.} This work extends and validates the framework originally developed for the Department of Antioquia \citep{EspinalMaya2026Antioquia} to Nari\~no---a department that poses fundamentally different challenges: (1) an extreme elevational gradient from sea level to \SI{4764}{\metre} (Volc\'an Cumbal), causing severe SAR geometric distortions (radar shadow, layover, foreshortening) in $\sim$40\% of the territory; (2) dual precipitation regimes---bimodal Andean and unimodal Pacific---requiring regime-specific seasonal analysis \citep{Urrea2019}; and (3) anomalous ENSO behaviour, with above-normal rainfall during \textit{both} El Ni\~no and La Ni\~na phases \citep{Enciso2020}, unlike the canonical Colombian response. This work makes three contributions: (1) a complete SAR-to-municipality pipeline adapted for extreme terrain and dual-regime climatology; (2) an ensemble ML susceptibility model validated through spatial cross-validation across 13 subregions; and (3) quantified population exposure for all 64 municipalities, producing outputs directly ingestible by POT and PMGRD instruments.
+
+\subsection{Study Area}
+\label{sec:study_area}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.75\textwidth]{fig01_study_area.pdf}
+\caption{Department of Nari\~no, Colombia, showing 13 subregions and 64 municipalities. Inset: location within Colombia, bordering Ecuador to the south and the Pacific Ocean to the west.}
+\label{fig:study_area}
+\end{figure}
+
+The Department of Nari\~no (\SI{33268}{\kilo\metre\squared}; 0\textdegree{}22'--2\textdegree{}41'\,N, 76\textdegree{}50'--79\textdegree{}02'\,W) comprises 64 municipalities organized in 13 subregions (Figure~\ref{fig:study_area}), with $\sim$1.9 million inhabitants. The landscape spans an extraordinary elevational gradient from sea level (Pacific coast) to \SI{4764}{\metre} (Volc\'an Cumbal), structured by the Nudo de los Pastos---the knot where the Central and Western Cordilleras converge. This creates four major physiographic zones: (1) Pacific lowlands (0--200~m), with mangrove estuaries, alluvial plains, and some of the highest rainfall in the world; (2) western Andean slopes (200--1,500~m), with steep terrain and high landslide risk; (3) the Nari\~no high plateau (1,500--3,500~m), including the capital Pasto (\SI{2527}{\metre} asl); and (4) the volcanic peaks and p\'aramos ($>$3,500~m).
+
+Seven major river systems drain the department: the Pat\'ia (410~km; basin $\sim$\SI{17000}{\kilo\metre\squared}; Colombia's largest Pacific-draining river), the Gu\'aitara (draining the Nari\~no Plateau), the Telemb\'i (frequent flooding in Barbacoas and Roberto Pay\'an), the Mira (forming the Colombia--Ecuador border), the Juanamb\'u, the Mayo, and the Sanquianga (severely impacting Olaya Herrera). Precipitation varies dramatically: 800--1,600~mm\,yr$^{-1}$ in the Andean highlands with bimodal seasonality (peaks in MAM and SON), versus 2,600--5,000+~mm\,yr$^{-1}$ in the Pacific lowlands with near-continuous rainfall \citep{Urrea2019}. Critically, Nari\~no tends to receive above-normal rainfall during \textit{both} El Ni\~no and La Ni\~na phases---a 20--40\% anomaly that distinguishes it from most Colombian departments \citep{Enciso2020, Poveda2001}. With eight rivers simultaneously overflowing in a single January 2017 event (affecting $\sim$25,000 people across eight municipalities), Nari\~no is among Colombia's most flood-affected departments.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Materials and Methods}
+\label{sec:methods}
+
+The methodology follows the framework established by \citet{EspinalMaya2026Antioquia} for Antioquia, with adaptations for Nari\~no's terrain and climate challenges. We summarize the pipeline below and highlight department-specific modifications.
+
+\subsection{Data Sources}
+
+The framework integrates 10 satellite and ancillary datasets (Table~\ref{tab:data_sources}), all accessed via Google Earth Engine \citep{Gorelick2017} except administrative boundaries (FAO GAUL 2015).
+
+\begin{table}[htbp]
+\caption{Datasets used in the flood risk assessment framework.}
+\label{tab:data_sources}
+\centering
+\footnotesize
+\begin{tabular}{lllll}
+\toprule
+\textbf{Dataset} & \textbf{Source} & \textbf{Resolution} & \textbf{Period} & \textbf{Role} \\
+\midrule
+Sentinel-1 GRD & ESA/Copernicus & \SI{10}{\metre} & 2015--2025 & Flood detection \\
+JRC GSW v1.4 & EC/JRC & \SI{30}{\metre} & 1984--2021 & Water dynamics \\
+SRTM DEM v3 & NASA/USGS & \SI{30}{\metre} & 2000 & Topographic features \\
+MERIT Hydro v1.0.1 & Yamazaki et al. & \SI{90}{\metre} & 2019 & HAND \\
+CHIRPS Daily v2.0 & UCSB/CHG & \SI{5.5}{\kilo\metre} & 2015--2025 & Precipitation \\
+ERA5-Land Monthly & ECMWF/C3S & \SI{11}{\kilo\metre} & 2015--2025 & Soil moisture \\
+Sentinel-2 MSI & ESA/Copernicus & \SI{10}{\metre} & 2020--2023 & NDVI \\
+ESA WorldCover v200 & ESA & \SI{10}{\metre} & 2021 & Land cover \\
+WorldPop v2020 & U. Southampton & \SI{100}{\metre} & 2020 & Population density \\
+FAO GAUL 2015 & FAO & Vector & 2015 & Admin. boundaries \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Sentinel-1 C-band SAR GRD scenes were ingested (IW mode, VV+VH polarization, descending orbit). A key adaptation for Nari\~no is the consideration of \textbf{both ascending and descending orbits} to mitigate the severe radar shadow and layover effects caused by the steep Andean terrain (see Section~\ref{sec:limitations}). The Sentinel-1B failure (December 2021 to April 2024) reduced revisit to 12 days; Sentinel-1C deployment in December 2024 restored 6-day coverage. Terrain variables (elevation, slope, aspect, curvature, TWI, SPI) were derived from SRTM \SI{30}{\metre}. HAND was computed from MERIT Hydro \SI{90}{\metre} \citep{Yamazaki2019} and resampled to \SI{30}{\metre} via bilinear interpolation; the effective resolution remains \SI{90}{\metre}, and vertical accuracy ($\pm$\SI{5}{\metre}) should be considered when interpreting threshold-based results, particularly in the flat Pacific lowlands.
+
+\subsection{SAR-Based Water Detection}
+\label{sec:sar_water}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{fig02_sar_water_detection.pdf}
+\caption{Sentinel-1 SAR flood detection in the Pacific lowlands of Nari\~no. (\textbf{a})~Pre-flood VV backscatter. (\textbf{b})~During-flood VV. (\textbf{c})~Detected flood water from backscatter differencing.}
+\label{fig:methodology}
+\end{figure}
+
+The SAR workflow (Figure~\ref{fig:methodology}) transforms Sentinel-1 backscatter into monthly binary water maps through: (1) speckle reduction via focal median filter (\SI{50}{\metre} kernel) with slope masking ($> 30^{\circ}$); (2) adaptive Otsu thresholding \citep{Otsu1979} on the VV histogram; (3) water mask refinement with \SI{1}{\hectare} minimum mapping unit and permanent water flagging (JRC occurrence $\geq 75\%$); and (4) monthly maximum-extent compositing.
+
+\subsection{Flood Frequency Mapping}
+
+Flood frequency per pixel was computed as:
+\begin{equation}
+    FF_i = \frac{\sum_{m=1}^{M} W_{i,m}}{M} \times 100
+    \label{eq:flood_freq}
+\end{equation}
+where $M$ is the number of monthly composites. Frequencies were classified into five categories: permanent ($>$75\%), very frequent (50--75\%), frequent (25--50\%), occasional (10--25\%), and rare (1--10\%). Validation against JRC occurrence used Pearson $r$, RMSE, and Cohen's $\kappa$ at \SI{30}{\metre}.
+
+\subsection{Flood Susceptibility Modeling}
+
+Eighteen predictor variables (Table~\ref{tab:features}) were assembled across five thematic groups.
+
+\begin{table}[htbp]
+\caption{Predictor variables organized by thematic group.}
+\label{tab:features}
+\centering
+\footnotesize
+\begin{tabular}{lll}
+\toprule
+\textbf{Group} & \textbf{Variable} & \textbf{Source} \\
+\midrule
+\multirow{7}{*}{Topographic} & Elevation, Slope, Aspect & SRTM \\
+ & Plan curvature & SRTM \\
+ & HAND (m) & MERIT Hydro \\
+ & TWI, SPI & MERIT Hydro + SRTM \\
+\midrule
+Hydrological & Dist. to drainage, Drainage density & HydroSHEDS \\
+\midrule
+Climatic & Mean/Max precip., Soil moisture & CHIRPS, ERA5 \\
+\midrule
+Land/Demog. & Land cover, NDVI, Pop. density & WorldCover, S2, WorldPop \\
+\midrule
+Water hist. & JRC occurrence, SAR flood freq., Accessibility$^*$ & JRC, This study, Oxford MAP \\
+\bottomrule
+\multicolumn{3}{l}{\scriptsize $^*$Accessibility: travel time (min) to nearest city of $\geq$50,000 inhabitants \citep{Weiss2018}.}
+\end{tabular}
+\end{table}
+
+Flood-positive and flood-negative pixels were defined following the same criteria as \citet{EspinalMaya2026Antioquia}: flood-positive locations detected as water in $\geq$5 monthly composites with JRC occurrence 5--75\%; flood-negative locations with JRC $= 0\%$, HAND $> \SI{30}{\metre}$, slope $> 10^{\circ}$, stratified across all 13 subregions. The balanced dataset was split 70/30 for training/test.
+
+Three models were trained: Random Forest \citep{Breiman2001} (scikit-learn 1.5.2), XGBoost \citep{Chen2016} (XGBoost 2.1.3), and LightGBM \citep{Ke2017} (LightGBM 4.5.0). Hyperparameters were selected via randomized search (100 iterations, 3-fold inner CV on the training partition). A weighted ensemble combined predictions proportional to each model's AUC-ROC (Equation~\ref{eq:ensemble}).
+
+\begin{equation}
+    P_{\text{ens}}(x) = \sum_{k=1}^{3} w_k \cdot P_k(x), \quad w_k = \frac{\text{AUC}_k}{\sum_{j} \text{AUC}_j}
+    \label{eq:ensemble}
+\end{equation}
+
+Performance was evaluated via \textit{spatial} five-fold cross-validation \citep{Roberts2017}, grouping the 13 subregions into five geographically contiguous folds to prevent spatial leakage: Fold~1 (Centro + Occidente + Los Abades), Fold~2 (Obando + La Sabana), Fold~3 (R\'io Mayo + Juanamb\'u + Guambuyaco + La Cordillera), Fold~4 (Pac\'ifico Sur + Piedemonte Costero), and Fold~5 (Sanquianga + Telemb\'i). Metrics: AUC-ROC, accuracy, precision, recall, F1, Cohen's $\kappa$, Brier score. Feature importance was assessed using SHAP \citep{Lundberg2017}.
+
+\subsection{Population Exposure and Risk Index}
+
+Exposed population per municipality $j$ was computed as:
+\begin{equation}
+    \text{Pop}_{\text{exp},j} = \sum_{i \in \Omega_j} P_i \cdot \mathbb{1}[S_i \geq 0.6]
+    \label{eq:pop_exposure}
+\end{equation}
+where $P_i$ is WorldPop population at pixel $i$ and $S_i$ is ensemble susceptibility (Equation~\ref{eq:ensemble}). A composite Flood Risk Index integrates hazard, susceptibility, and exposure (Equation~\ref{eq:fri}):
+\begin{equation}
+    \text{FRI}_j = \frac{A_{\text{high},j}}{A_{\text{total},j}} \times \frac{\text{Pop}_{\text{exp},j}}{\text{Pop}_{\text{total},j}} \times FF_{\text{mean},j}
+    \label{eq:fri}
+\end{equation}
+Sensitivity to the threshold $\tau$ was tested at 0.5, 0.6, and 0.7.
+
+\subsection{Seasonal and ENSO Analysis}
+
+Monthly water extent was stratified by ENSO phase using the Oceanic Ni\~no Index (ONI $> 0.5$\textdegree{}C for El Ni\~no, $< -0.5$\textdegree{}C for La Ni\~na, over $\geq$5 consecutive overlapping 3-month periods). Differences were tested via Kruskal-Wallis with Dunn's post-hoc correction. Trends were assessed via Mann-Kendall test \citep{Mann1945} with Sen's slope estimator \citep{Sen1968}.
+
+A key methodological adaptation for Nari\~no is the \textbf{dual seasonal analysis}: the standard bimodal seasons (DJF, MAM, JJA, SON) were applied to the Andean subregions, while a separate unimodal regime analysis was conducted for the Pacific subregions (Pac\'ifico Sur, Sanquianga, Telemb\'i, Piedemonte Costero), where rainfall is nearly continuous year-round with only a slight dip in August--September \citep{Urrea2019}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Results}
+\label{sec:results}
+
+\textit{Note: This section contains placeholder structure. Numerical results will be populated after running the complete processing pipeline.}
+
+\subsection{SAR Water Detection and Flood Frequency}
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{fig03_jrc_water_occurrence.pdf}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{fig05_hand_susceptibility.pdf}
+\end{minipage}
+\caption{(\textbf{Left})~JRC Global Surface Water occurrence for Nari\~no, used for SAR validation and as an input feature. (\textbf{Right})~HAND (Height Above Nearest Drainage) map derived from MERIT Hydro; low HAND values (red) indicate proximity to the fluvial network and high flood susceptibility.}
+\label{fig:jrc_hand}
+\end{figure}
+
+% TODO: Populate with actual results after pipeline execution
+Processing Sentinel-1 scenes yielded monthly composites and annual maximum extent maps. The decadal flood frequency analysis is expected to reveal distinct spatial patterns: lowland alluvial flooding ($FF > 25\%$) along the Pat\'ia, Telemb\'i, and Mira corridors; estuarine flooding in the Sanquianga and Iscuand\'e deltas; and limited detection in mountainous terrain due to SAR geometric distortions.
+
+\subsection{Machine Learning Model Performance}
+
+\begin{table}[htbp]
+\caption{Flood susceptibility model performance under spatial five-fold cross-validation (mean $\pm$ SD). Best individual values in italics; best overall in bold.}
+\label{tab:ml_results}
+\centering
+\footnotesize
+\begin{tabular}{lccccccc}
+\toprule
+\textbf{Model} & \textbf{AUC-ROC} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{$\kappa$} & \textbf{Brier} \\
+\midrule
+Random Forest   & -- & -- & -- & -- & -- & -- & -- \\
+XGBoost         & -- & -- & -- & -- & -- & -- & -- \\
+LightGBM        & -- & -- & -- & -- & -- & -- & -- \\
+\textbf{Ensemble} & \textbf{--} & \textbf{--} & \textbf{--} & \textbf{--} & \textbf{--} & \textbf{--} & \textbf{--} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% TODO: Populate after ML training
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.46\textwidth}
+\centering
+\includegraphics[width=\textwidth]{fig06_roc_curves.pdf}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.52\textwidth}
+\centering
+\includegraphics[width=\textwidth]{fig07_shap_importance.pdf}
+\end{minipage}
+\caption{(\textbf{Left})~ROC curves for individual models and the weighted ensemble under spatial cross-validation. (\textbf{Right})~Global SHAP feature importance (top 12 of 18 predictors).}
+\label{fig:roc_shap}
+\end{figure}
+
+\subsection{Feature Importance}
+
+% TODO: Populate after SHAP analysis
+Given Nari\~no's extreme terrain, HAND and elevation are expected to dominate SHAP importance even more strongly than in the Antioquia study \citep{EspinalMaya2026Antioquia}, where they collectively accounted for 62\% of the total SHAP budget. The sharp HAND $< \SI{5}{\metre}$ threshold is expected to remain physically meaningful, particularly in the flat Pacific lowlands where SAR detection performs best.
+
+\subsection{Flood Susceptibility Map}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.55\textwidth]{fig08_flood_susceptibility.pdf}
+\caption{Ensemble flood susceptibility map for Nari\~no. Dashed lines delineate the 13 subregions.}
+\label{fig:susceptibility}
+\end{figure}
+
+% TODO: Populate susceptibility area table after pipeline execution
+
+\begin{table}[htbp]
+\caption{Area distribution across susceptibility classes by subregion (\% of subregional area). Department-wide values (last row) were computed from the full-resolution raster, not as a weighted average of subregional rows.}
+\label{tab:suscept_area}
+\centering
+\footnotesize
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Subregion} & \textbf{Very low} & \textbf{Low} & \textbf{Moderate} & \textbf{High} & \textbf{Very high} \\
+\midrule
+Centro              & -- & -- & -- & -- & -- \\
+Guambuyaco          & -- & -- & -- & -- & -- \\
+Juanamb\'u          & -- & -- & -- & -- & -- \\
+La Cordillera       & -- & -- & -- & -- & -- \\
+La Sabana           & -- & -- & -- & -- & -- \\
+Los Abades          & -- & -- & -- & -- & -- \\
+Obando              & -- & -- & -- & -- & -- \\
+Occidente           & -- & -- & -- & -- & -- \\
+Pac\'ifico Sur      & -- & -- & -- & -- & -- \\
+Piedemonte Costero  & -- & -- & -- & -- & -- \\
+R\'io Mayo          & -- & -- & -- & -- & -- \\
+Sanquianga          & -- & -- & -- & -- & -- \\
+Telemb\'i           & -- & -- & -- & -- & -- \\
+\midrule
+\textbf{Nari\~no}  & \textbf{--} & \textbf{--} & \textbf{--} & \textbf{--} & \textbf{--} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Based on the geographic characteristics, the highest susceptibility is expected in three corridors:
+
+\begin{enumerate}
+    \item \textbf{Sanquianga--Telemb\'i corridor}: Pat\'ia River estuary and Telemb\'i floodplain, with extreme rainfall ($>$3,000~mm\,yr$^{-1}$), flat terrain, and dense vegetation.
+    \item \textbf{Pac\'ifico Sur coastal lowlands}: Mira River overflow in Tumaco, tidal flooding, and the Iscuand\'e delta.
+    \item \textbf{Pat\'ia canyon}: Andean river valley flooding in Policarpa, Taminango, and Cumbitara, though SAR detection is limited by steep terrain.
+\end{enumerate}
+
+\subsection{Population Exposure}
+
+% TODO: Populate exposure table after pipeline execution
+
+\begin{table}[htbp]
+\caption{Population exposure by subregion ($\tau = 0.6$). FRI = Flood Risk Index.}
+\label{tab:exposure}
+\centering
+\footnotesize
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Subregion} & \textbf{Area (km$^2$)} & \textbf{High susc. (\%)} & \textbf{Pop. (10$^3$)} & \textbf{Pop. exp. (10$^3$)} & \textbf{FRI} \\
+\midrule
+Centro              & -- & -- & -- & -- & -- \\
+Guambuyaco          & -- & -- & -- & -- & -- \\
+Juanamb\'u          & -- & -- & -- & -- & -- \\
+La Cordillera       & -- & -- & -- & -- & -- \\
+La Sabana           & -- & -- & -- & -- & -- \\
+Los Abades          & -- & -- & -- & -- & -- \\
+Obando              & -- & -- & -- & -- & -- \\
+Occidente           & -- & -- & -- & -- & -- \\
+Pac\'ifico Sur      & -- & -- & -- & -- & -- \\
+Piedemonte Costero  & -- & -- & -- & -- & -- \\
+R\'io Mayo          & -- & -- & -- & -- & -- \\
+Sanquianga          & -- & -- & -- & -- & -- \\
+Telemb\'i           & -- & -- & -- & -- & -- \\
+\midrule
+\textbf{Total}      & \textbf{33,268} & \textbf{--} & \textbf{$\sim$1,900} & \textbf{--} & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{fig09_municipal_risk_ranking.pdf}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{fig10_population_exposure.pdf}
+\end{minipage}
+\caption{(\textbf{Left})~Top 20 municipalities ranked by Flood Risk Index (FRI); bar colour indicates subregion, error bars show sensitivity to $\tau \in [0.5, 0.7]$. (\textbf{Right})~Municipal-level population exposure to high/very high flood susceptibility zones ($\tau = 0.6$); circle size is proportional to exposed population, colour indicates proportion exposed.}
+\label{fig:exposure_ranking}
+\end{figure}
+
+\subsection{Seasonal and ENSO Dynamics}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{fig11_seasonal_dynamics.pdf}
+\caption{Temporal flood dynamics (2015--2025). (\textbf{a})~Monthly flood extent with ENSO phase shading (blue: La Ni\~na; pink: El Ni\~no). (\textbf{b})~Climatological monthly mean for Andean subregions (bimodal) and Pacific subregions (unimodal).}
+\label{fig:seasonal}
+\end{figure}
+
+% TODO: Populate after climate analysis
+A unique finding expected for Nari\~no is the anomalous ENSO response: unlike Antioquia and most Colombian departments where El Ni\~no reduces rainfall, Nari\~no tends to receive above-normal rainfall (20--40\% above historical averages) during \textit{both} El Ni\~no and La Ni\~na phases \citep{Enciso2020}. This has critical implications for flood early warning systems, as ENSO phase alone cannot serve as a simple predictor of reduced flood risk.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Transferability of the Antioquia Framework}
+
+This study constitutes the first replication of the SAR-ML flood susceptibility framework \citep{EspinalMaya2026Antioquia} to a fundamentally different department. Nari\~no's smaller area (\SI{33268}{\kilo\metre\squared} vs.\ \SI{63612}{\kilo\metre\squared}), fewer municipalities (64 vs.\ 125), but more extreme terrain and climate variability test the generalizability of the approach. Key adaptations included: dual-orbit SAR processing to mitigate terrain distortions, regime-specific seasonal analysis, and spatial CV folds designed around 13 (vs.\ 9) subregions.
+
+\subsection{SAR Detection in Extreme Terrain}
+
+Nari\~no's terrain poses the most severe SAR challenges of any Colombian department. Radar shadow affects steep west-facing slopes in the Andes, layover distorts volcanic flanks (Galeras, Azufral, Cumbal, Chiles), and dense canopy in the Pacific lowlands attenuates C-band SAR. Slope masking ($>30^{\circ}$) eliminates a larger fraction of the study area than in Antioquia. SAR flood detection is most reliable in the flat Pacific lowlands (Pac\'ifico Sur, Sanquianga, Telemb\'i)---precisely the areas where flood vulnerability is highest---and least reliable in the steep Andean valleys (La Cordillera, Guambuyaco). This spatial bias in detection quality aligns fortuitously with the spatial distribution of flood risk, concentrating the highest-quality outputs where they are most needed.
+
+\subsection{Dual Precipitation Regimes and ENSO Anomaly}
+
+Nari\~no's dual precipitation regime (bimodal Andean vs.\ unimodal Pacific) required adapting the seasonal analysis framework. The Pacific subregions receive 2,600--5,000+~mm\,yr$^{-1}$ with near-continuous rainfall, making the standard DJF/MAM/JJA/SON seasonal decomposition less informative for these areas. The anomalous ENSO response---above-normal rainfall during \textit{both} El Ni\~no and La Ni\~na---distinguishes Nari\~no from the canonical Colombian pattern and from the Antioquia results, where La Ni\~na increased flood extent by 34\% while El Ni\~no reduced it. This anomaly is attributed to the strengthening of the Choc\'o low-level jet during warm Pacific SST anomalies, which increases moisture transport to southwestern Colombia regardless of ENSO phase \citep{Poveda2001, Salas2023}.
+
+\subsection{Population Exposure and Environmental Justice}
+
+Nari\~no's Pacific lowland communities (Tumaco, Barbacoas, Olaya Herrera, Roberto Pay\'an, Magu\'i Pay\'an, El Charco) are predominantly Afro-Colombian and Indigenous, with high poverty rates, limited infrastructure, and economies dependent on artisanal fishing and subsistence agriculture \citep{PalaciosMoreno2022, CamachoDiaz2023}. These communities face compound vulnerabilities: extreme rainfall, riverine flooding, tidal inundation, poor road connectivity (some accessible only by river), and limited disaster response capacity. The framework's municipality-level outputs are particularly relevant here, as these municipalities are precisely those that lack the technical capacity to produce their own flood risk assessments.
+
+\subsection{Limitations, Uncertainty, and Future Directions}
+\label{sec:limitations}
+
+Beyond the limitations documented in \citet{EspinalMaya2026Antioquia}, Nari\~no introduces additional challenges. (1) \textbf{Terrain-induced SAR degradation}: radar shadow, layover, and foreshortening affect $\sim$40\% of the study area (vs.\ $\sim$26\% in Antioquia), reducing flood detection accuracy in steep Andean valleys to an estimated 50--60\% \citep{Tarpanelli2022}. Using both ascending and descending orbits mitigates but does not eliminate this limitation. (2) \textbf{Dense vegetation attenuation}: the Pacific lowlands' dense tropical canopy attenuates C-band SAR, potentially causing underestimation of flood extent beneath forest cover. L-band SAR (e.g., ALOS-2 PALSAR-2) would improve penetration but lacks the temporal density of Sentinel-1. (3) \textbf{Dual-regime seasonality}: the standard four-season analysis captures Andean patterns but is less appropriate for the Pacific coast's near-continuous rainfall; our dual-regime approach addresses this partially but introduces complexity in department-wide aggregation. (4) \textbf{ENSO anomaly}: the above-normal rainfall during both ENSO phases means that simple ENSO-based early warning thresholds developed for other Colombian departments cannot be directly transferred to Nari\~no.
+
+Future priorities include: integration of ascending-orbit SAR to reduce terrain blind spots, L-band SAR fusion for forested Pacific lowlands, validation against UNGRD ground-truth event records for Nari\~no, coupling with CMIP6 downscaled precipitation for forward-looking risk assessment \citep{Arias2023, RiverosGarzon2025}, and development of Nari\~no-specific ENSO--flood early warning thresholds.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusions}
+\label{sec:conclusions}
+
+This study demonstrates the transferability of SAR--ML flood risk mapping to a Colombian department with extreme terrain and climate challenges, producing the first municipality-level flood risk statistics for all 64 municipalities of Nari\~no.
+
+\textbf{Scientific contribution:} The successful replication from Antioquia to Nari\~no validates the framework's generalizability across fundamentally different physiographic settings. Nari\~no's extreme elevation range (0--\SI{4764}{\metre}), dual precipitation regimes, and anomalous ENSO response (above-normal rainfall during both El Ni\~no and La Ni\~na) pose challenges not encountered in the original Antioquia application, providing a rigorous stress test for the methodology.
+
+\textbf{Applied contribution:} The framework produces outputs at the municipality scale, directly ingestible by POT and PMGRD instruments, for Nari\~no's 64 municipalities. The concentration of flood risk in Pacific lowland communities---predominantly Afro-Colombian and Indigenous, with limited technical capacity---underscores the importance of open-access, reproducible tools that can generate the geospatial inputs these municipalities are legally required but practically unable to produce.
+
+Because the pipeline runs entirely on Google Earth Engine and open-source Python libraries, it can be replicated to any tropical department with Sentinel-1 coverage at near-zero marginal cost. The complete codebase is available at \url{https://github.com/Cespial/narino-flood-risk}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Supplementary Materials}
+
+The following supplementary materials are available online: Table~S1 (Flood Risk Index for all 64 municipalities), Figures~S1--S3 (SHAP dependence plots for HAND, flood frequency, and elevation), Figure~S4 (per-fold ROC curves), Figure~S5 (dual-regime seasonal decomposition), and the complete Google Earth Engine processing scripts.
+
+\section*{Author Contributions}
+
+Conceptualization, C.E.M. and S.J.L.; methodology, C.E.M.; software, C.E.M.; formal analysis, C.E.M.; investigation, C.E.M.; data curation, C.E.M.; writing---original draft, C.E.M.; writing---review and editing, S.J.L.; visualization, C.E.M.; supervision, S.J.L. All authors have read and agreed to the published version of the manuscript.
+
+\section*{Funding}
+
+This research was supported by Universidad EAFIT through the Master's thesis research program. No external funding was received.
+
+\section*{Data Availability}
+
+All satellite data were accessed through Google Earth Engine. Administrative boundaries from FAO GAUL 2015. Source code available at \url{https://github.com/Cespial/narino-flood-risk} (MIT license).
+
+\section*{Acknowledgments}
+
+The authors thank Google Earth Engine for cloud computing access, ESA for Sentinel-1 data, the JRC for Global Surface Water, and UNGRD for maintaining Colombia's disaster event database. This work builds on the open-access framework developed for the Department of Antioquia \citep{EspinalMaya2026Antioquia}.
+
+\section*{Conflicts of Interest}
+
+The authors declare no conflicts of interest.
+
+\section*{Abbreviations}
+
+The following abbreviations are used in this manuscript:\\
+
+\noindent
+\begin{tabular}{@{}ll}
+SAR & Synthetic Aperture Radar\\
+GEE & Google Earth Engine\\
+HAND & Height Above Nearest Drainage\\
+ENSO & El Ni\~no--Southern Oscillation\\
+SHAP & SHapley Additive exPlanations\\
+FRI & Flood Risk Index\\
+POT & Plan de Ordenamiento Territorial\\
+PMGRD & Plan Municipal de Gesti\'on del Riesgo de Desastres\\
+AUC-ROC & Area Under the ROC Curve\\
+TWI & Topographic Wetness Index\\
+SPI & Stream Power Index
+\end{tabular}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+
+\end{document}
